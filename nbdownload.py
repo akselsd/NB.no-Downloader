@@ -2,6 +2,7 @@ import urllib.request
 import urllib.error
 import os
 import io
+import sys
 from PIL import Image
 from fpdf import FPDF
 
@@ -74,7 +75,8 @@ class Book:
 
 
     def download_book(self):
-        pdf = FPDF(format="A4")
+        # Sets PDF size - Might want to make a variable based on image size....
+        pdf = FPDF(format="Letter")
         if self.length is None:
             print("Length not specified, calculating book length")
             self.length = self.find_book_length()
@@ -144,9 +146,10 @@ class Book:
                 break
 
 def main():
-	book_id = ""
-    b = Book(book_id)
-    b.download_book()
+# Request book_id from console arguments
+  book_id = sys.argv[1]
+  b = Book(book_id)
+  b.download_book()
 
 if __name__ == "__main__":
     main()
