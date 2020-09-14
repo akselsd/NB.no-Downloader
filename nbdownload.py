@@ -28,7 +28,7 @@ class Book:
     def download_page(self, page_nr, retry):
 
         # Get the partial images and stich the image together
-        page = Image.new("RGB", tuple(self.img_size))
+        page = Image.new("RGB", tuple(self.img_size), "white") # Any unused space in the image will be white
         x_offset = 0
         y_offset = 0
         for row in range(self.rows):
