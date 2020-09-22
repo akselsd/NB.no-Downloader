@@ -17,6 +17,7 @@ class Book:
         self.cols = -1
         self.img_size = [0, 0]
         self.params = {"book_id": str(book_id), "page_nr": "1", "long_page_nr": "0001", "col": "0", "row": "0"}
+        self.retry = 2 # Establish a counter for download error retries
         self.path = book_id + "_temp_image_folder\\"
         self.fullpath = os.path.join(os.path.dirname(os.path.realpath(__file__)), self.path)
         if not os.path.exists(self.fullpath):
@@ -24,21 +25,28 @@ class Book:
         self.url_template = "https://www.nb.no/services/image/resolver?url_ver=geneza&urn=URN:NBN:no-nb_digibok_{book_id}_{long_page_nr}&maxLevel=5&level=5&col={col}&row={row}&resX=9999&resY=9999&tileWidth=1024&tileHeight=1024&pg_id={page_nr}"
         self._find_rows_cols_and_img_size()
 
-    def download_page(self, page_nr):
+    def download_page(self, page_nr, retry):
 
         # Get the partial images and stich the image together
-        page = Image.new("RGB", tuple(self.img_size))
+        page = Image.new("RGB", tuple(self.img_size), "white") # Any unused space in the image will be white
         x_offset = 0
         y_offset = 0
         for row in range(self.rows):
-            for col in range(self.cols):
-
+            col = 0
+            while col < self.cols:
                 self.update_params(page_nr, col, row)
                 try:
                     response = (urllib.request.urlopen(self.url_template.format(**self.params))).read()
                 except urllib.error.HTTPError:
-                    print("404 Error: Is the page number, column or row too high?")
+                    print("Download Error: Is the page number, column or row too high?")
                     print("Tried to access "+self.url_template.format(**self.params))
+                    # Check retry counter, prevents program from hanging if the download error isn't overcome with three retries
+                    if self.retry >= 0:
+                        print("Retrying.... "+str(self.retry)+ " tries remaining.")
+                        self.retry -= 1
+                        col -= 1
+                    else:
+                        print("All retries failed")
                 except:
                     print("Other error")
                     exit()
@@ -51,6 +59,7 @@ class Book:
                 if col == self.cols-1:
                     x_offset = 0
                     y_offset += partial_page.height
+                col += 1
 
         page.save(self.id+"_temp_image_folder\\"+str(page_nr)+".jpg")
 
@@ -83,22 +92,25 @@ class Book:
             print("Book length found: ",self.length)
 
         print("Downloading book", self.id)
+        retry = 2
 
         # Front Cover:
-        self.download_page("C1")
+        self.download_page("C1", retry)
+        self.retry = 2
         pdf.add_page()
         pdf.image(self.id+"_temp_image_folder\\" + "C1" + ".jpg", 0, 0, 210, 297)
 
         for page in range(1, self.length+1):
-            self.download_page(page)
+            self.download_page(page, retry)
             print("Page", page, "download complete")
+            self.retry = 2
 
         for page in range(1, self.length+1):
             pdf.add_page()
             pdf.image(self.id+"_temp_image_folder\\" + str(page) + ".jpg", 0, 0, 210, 297)
 
         # Back Cover
-        self.download_page("C3")
+        self.download_page("C3", retry)
         pdf.add_page()
         pdf.image(self.id + "_temp_image_folder\\" + "C3" + ".jpg", 0, 0, 210, 297)
 
